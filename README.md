@@ -5,7 +5,7 @@ Customer feedback intelligence. Drop in reviews, survey answers or support ticke
 
 No database, no accounts, no paid hosting. Files are analysed in memory and forgotten after 30 minutes, and reports are saved in the visitor's own browser.
 
-Work in progress: the backend, machine learning and web app are built and tested. Deployment comes next.
+Built and tested end to end: backend, machine learning, web app, browser tests and a deployable container.
 
 
 What it does
@@ -68,6 +68,26 @@ cd frontend && npm run e2e
 ```
 
 The browser tests start both servers themselves and run on a desktop and a phone viewport.
+
+
+Deploy for free
+---------------
+
+**API on a Hugging Face Space** (free Docker hardware, 2 CPUs and 16 GB):
+
+1. On huggingface.co create a Space with the Docker SDK and the blank template, for example `yourname/sift-api`.
+2. Create a Hugging Face access token with write access.
+3. In this GitHub repo, under Settings, Secrets and variables, Actions: add the secret `HF_TOKEN` and the variable `HF_SPACE` set to `yourname/sift-api`.
+4. Run the "API container" workflow. It builds the image, analyses the sample inside it, then publishes it to the Space.
+5. In the Space settings add the variable `SIFT_ALLOWED_ORIGINS` with your Vercel address, and optionally the secret `ANTHROPIC_API_KEY`.
+
+**Web app on Vercel** (free Hobby plan):
+
+1. Import this repo and set the root directory to `frontend`.
+2. Add the environment variable `NEXT_PUBLIC_API_URL`, for example `https://yourname-sift-api.hf.space`.
+3. Deploy.
+
+The demo report is built into the web app, so it opens instantly even while the free Space is asleep. The analyse page shows when the server is waking up.
 
 
 Data
