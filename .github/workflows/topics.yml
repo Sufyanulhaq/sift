@@ -1,0 +1,26 @@
+name: Topic quality with the sentence model
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - backend/sift/pipeline/**
+      - backend/sift/analysis.py
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - name: Analyse the sample with MiniLM
+        env:
+          SIFT_EMBEDDER: minilm
+        run: uv run python ml/report_topics.py | tee topics-report.txt
+      - run: |
+          { echo '```'; cat topics-report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

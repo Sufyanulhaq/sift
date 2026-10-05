@@ -97,10 +97,65 @@ def project(vectors: np.ndarray, seed: int = 7) -> np.ndarray:
     return ((coords - lo) / np.maximum(hi - lo, 1e-9)).astype(np.float32)
 
 
-def build(texts: list[str], vectors: np.ndarray, seed: int = 7) -> TopicModel:
+def _centroids(vectors: np.ndarray, labels: np.ndarray) -> dict[int, np.ndarray]:
+    out = {}
+    for c in set(labels.tolist()) - {OUTLIER}:
+        centre = vectors[labels == c].mean(axis=0)
+        out[c] = centre / max(np.linalg.norm(centre), 1e-9)
+    return out
+
+
+def merge_similar(vectors: np.ndarray, labels: np.ndarray, max_topics: int) -> np.ndarray:
+    """Merge the two most similar topics (by the cosine of their centres) until at
+    most `max_topics` remain. Embeddings often split one theme into several close
+    clusters, such as "arrived late" and "tracking never updated"."""
+    labels = labels.copy()
+    while True:
+        centres = _centroids(vectors, labels)
+        if len(centres) <= max_topics:
+            return labels
+        ids = sorted(centres)
+        matrix = np.array([centres[i] for i in ids])
+        sims = matrix @ matrix.T
+        np.fill_diagonal(sims, -2)
+        a, b = np.unravel_index(int(np.argmax(sims)), sims.shape)
+        keep, drop = ids[a], ids[b]
+        if np.sum(labels == drop) > np.sum(labels == keep):
+            keep, drop = drop, keep
+        labels[labels == drop] = keep
+
+
+def assign_outliers(vectors: np.ndarray, labels: np.ndarray) -> np.ndarray:
+    """Give each unassigned review to its nearest topic, but only when it is at
+    least as close as that topic's least typical tenth of members. Reviews that
+    fit nowhere stay unassigned rather than being forced into a topic."""
+    labels = labels.copy()
+    centres = _centroids(vectors, labels)
+    if not centres:
+        return labels
+    ids = sorted(centres)
+    matrix = np.array([centres[i] for i in ids])
+    floors = {}
+    for i in ids:
+        own = vectors[labels == i] @ centres[i]
+        floors[i] = float(np.percentile(own, 10))
+    outliers = np.where(labels == OUTLIER)[0]
+    if len(outliers):
+        sims = vectors[outliers] @ matrix.T
+        best = np.argmax(sims, axis=1)
+        for row, idx in enumerate(outliers):
+            topic = ids[best[row]]
+            if sims[row, best[row]] >= floors[topic]:
+                labels[idx] = topic
+    return labels
+
+
+def build(texts: list[str], vectors: np.ndarray, seed: int = 7, max_topics: int = 10) -> TopicModel:
     labels, method = cluster(vectors, seed)
+    labels = merge_similar(vectors, labels, max_topics)
+    labels = assign_outliers(vectors, labels)
     # Renumber clusters by size, largest first, so topic 0 is always the biggest.
     sizes = sorted(((int(np.sum(labels == c)), int(c)) for c in set(labels) - {OUTLIER}), reverse=True)
     remap = {old: new for new, (_, old) in enumerate(sizes)}
-    labels = np.array([remap.get(int(l), OUTLIER) for l in labels])
+    labels = np.array([remap.get(int(lab), OUTLIER) for lab in labels])
     return TopicModel(labels=labels, keywords=keywords(texts, labels), method=method, coords=project(vectors, seed))
