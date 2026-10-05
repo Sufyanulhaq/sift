@@ -127,7 +127,7 @@ def merge_similar(vectors: np.ndarray, labels: np.ndarray, max_topics: int) -> n
 
 def assign_outliers(vectors: np.ndarray, labels: np.ndarray) -> np.ndarray:
     """Give each unassigned review to its nearest topic, but only when it is at
-    least as close as that topic's least typical tenth of members. Reviews that
+    least as close as that topic's outermost members (its 3rd percentile). Reviews that
     fit nowhere stay unassigned rather than being forced into a topic."""
     labels = labels.copy()
     centres = _centroids(vectors, labels)
@@ -138,7 +138,7 @@ def assign_outliers(vectors: np.ndarray, labels: np.ndarray) -> np.ndarray:
     floors = {}
     for i in ids:
         own = vectors[labels == i] @ centres[i]
-        floors[i] = float(np.percentile(own, 10))
+        floors[i] = float(np.percentile(own, 3))
     outliers = np.where(labels == OUTLIER)[0]
     if len(outliers):
         sims = vectors[outliers] @ matrix.T
