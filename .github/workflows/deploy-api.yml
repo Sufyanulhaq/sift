@@ -1,0 +1,59 @@
+name: API container
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - backend/**
+      - samples/**
+      - .github/workflows/deploy-api.yml
+
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: docker build -t sift-api .
+      - name: Smoke test
+        run: |
+          docker run -d --name api -p 7860:7860 -e SIFT_ALLOWED_ORIGINS=http://localhost:3000 sift-api
+          for i in $(seq 1 30); do curl -sf localhost:7860/api/health && break; sleep 2; done
+          job=$(curl -sf -X POST localhost:7860/api/analyze/sample/hearth-and-oak-reviews.csv | python3 -c "import sys,json;print(json.load(sys.stdin)['jobId'])")
+          for i in $(seq 1 60); do
+            code=$(curl -s -o result.json -w "%{http_code}" localhost:7860/api/jobs/$job)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          python3 -c "import json;m=json.load(open('result.json'))['meta'];print(m);assert m['embedder']=='minilm'"
+          docker logs api | tail -20
+      - name: Publish to the Hugging Face Space
+        if: ${{ github.event_name != 'pull_request' && vars.HF_SPACE != '' }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          mkdir space
+          cp -r Dockerfile .dockerignore samples space/
+          mkdir space/backend
+          cp -r backend/pyproject.toml backend/uv.lock backend/README.md backend/sift backend/models space/backend/
+          cat > space/README.md <<'MD'
+          ---
+          title: Sift API
+          emoji: 📊
+          colorFrom: indigo
+          colorTo: pink
+          sdk: docker
+          app_port: 7860
+          pinned: false
+          short_description: Customer feedback analysis API for Sift
+          ---
+
+          The backend of [Sift](https://github.com/Sufyanulhaq/sift). Interactive docs are at /docs.
+          MD
+          sed -i 's/^          //' space/README.md
+          pip install --quiet huggingface_hub
+          hf upload "$HF_SPACE" space . --repo-type space --commit-message "Deploy ${GITHUB_SHA::7}"

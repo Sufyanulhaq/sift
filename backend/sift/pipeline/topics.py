@@ -16,7 +16,7 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.cluster import HDBSCAN, KMeans
 from sklearn.decomposition import PCA
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, CountVectorizer
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 
@@ -56,13 +56,100 @@ def cluster(vectors: np.ndarray, seed: int = 7) -> tuple[np.ndarray, str]:
     return np.asarray(best), "kmeans"
 
 
+# Words that appear in feedback about anything, so they never describe a topic.
+# The topic's mood is shown separately, which is why plain praise and blame are here too.
+FILLER = {
+    "also",
+    "amazing",
+    "arrived",
+    "ask",
+    "asking",
+    "awful",
+    "bad",
+    "best",
+    "better",
+    "bit",
+    "bought",
+    "buy",
+    "called",
+    "came",
+    "come",
+    "could",
+    "day",
+    "days",
+    "did",
+    "does",
+    "eight",
+    "excellent",
+    "feel",
+    "feels",
+    "felt",
+    "fine",
+    "five",
+    "four",
+    "gave",
+    "get",
+    "going",
+    "good",
+    "got",
+    "great",
+    "happy",
+    "hour",
+    "hours",
+    "instead",
+    "just",
+    "like",
+    "lot",
+    "love",
+    "loved",
+    "lovely",
+    "make",
+    "made",
+    "need",
+    "needed",
+    "nice",
+    "nine",
+    "one",
+    "people",
+    "perfect",
+    "poor",
+    "really",
+    "right",
+    "said",
+    "says",
+    "send",
+    "sent",
+    "seven",
+    "six",
+    "still",
+    "take",
+    "ten",
+    "terrible",
+    "thing",
+    "things",
+    "three",
+    "time",
+    "times",
+    "took",
+    "two",
+    "way",
+    "week",
+    "weeks",
+    "went",
+    "worst",
+    "worth",
+    "would",
+}
+STOP_WORDS = sorted(ENGLISH_STOP_WORDS | FILLER)
+
+
 def keywords(texts: list[str], labels: np.ndarray, top: int = 6) -> dict[int, list[str]]:
     """Class based TF-IDF: each cluster's texts joined into one document."""
     clusters = sorted(set(labels) - {OUTLIER})
     if not clusters:
         return {}
     docs = [" ".join(t for t, l in zip(texts, labels) if l == c) for c in clusters]
-    vec = CountVectorizer(stop_words="english", ngram_range=(1, 2), min_df=1, token_pattern=r"(?u)\b[a-zA-Z][a-zA-Z]+\b")
+    vec = CountVectorizer(stop_words=STOP_WORDS, ngram_range=(1, 2), min_df=1, token_pattern=r"(?u)\b[a-zA-Z][a-zA-Z]+\b")
     counts = vec.fit_transform(docs).toarray().astype(np.float64)
     words = vec.get_feature_names_out()
     tf = counts / np.maximum(counts.sum(axis=1, keepdims=True), 1)
@@ -125,9 +212,13 @@ def merge_similar(vectors: np.ndarray, labels: np.ndarray, max_topics: int) -> n
         labels[labels == drop] = keep
 
 
+MIN_FIT = 0.3
+
+
 def assign_outliers(vectors: np.ndarray, labels: np.ndarray) -> np.ndarray:
     """Give each unassigned review to its nearest topic, but only when it is at
-    least as close as that topic's outermost members (its 3rd percentile). Reviews that
+    least as close as that topic's outermost members (its 3rd percentile), or
+    has a cosine of at least MIN_FIT with its centre. Reviews that
     fit nowhere stay unassigned rather than being forced into a topic."""
     labels = labels.copy()
     centres = _centroids(vectors, labels)
@@ -138,7 +229,7 @@ def assign_outliers(vectors: np.ndarray, labels: np.ndarray) -> np.ndarray:
     floors = {}
     for i in ids:
         own = vectors[labels == i] @ centres[i]
-        floors[i] = float(np.percentile(own, 3))
+        floors[i] = min(float(np.percentile(own, 3)), MIN_FIT)
     outliers = np.where(labels == OUTLIER)[0]
     if len(outliers):
         sims = vectors[outliers] @ matrix.T
