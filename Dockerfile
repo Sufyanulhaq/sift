@@ -25,5 +25,6 @@ RUN .venv/bin/python -c "from sift.pipeline.embed import OnnxEmbedder; OnnxEmbed
 RUN useradd -m -u 1000 sift
 USER sift
 
+ENV PORT=7860
 EXPOSE 7860
-CMD [".venv/bin/uvicorn", "sift.main:app", "--host", "0.0.0.0", "--port", "7860", "--proxy-headers", "--forwarded-allow-ips", "*"]
+CMD .venv/bin/uvicorn sift.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"

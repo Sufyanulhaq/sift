@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: sift-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - Dockerfile
+        - backend/**
+        - samples/**
+    envVars:
+      - key: SIFT_EMBEDDER
+        value: lsa
+      - key: SIFT_MAX_RUNNING
+        value: "1"
+      - key: SIFT_ALLOWED_ORIGINS
+        value: https://sift-sigma-two.vercel.app,http://localhost:3000

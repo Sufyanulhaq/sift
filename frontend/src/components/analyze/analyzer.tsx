@@ -32,9 +32,9 @@ function useServer(): Server {
       } catch {
         tries++;
         if (!alive) return;
-        // Free hosts sleep when idle. Keep knocking for about a minute.
-        setState(tries > 12 ? "down" : "waking");
-        if (tries <= 12) setTimeout(check, 5000);
+        // Free hosts sleep when idle and can take a minute or two to wake. Keep knocking.
+        setState(tries > 30 ? "down" : "waking");
+        if (tries <= 30) setTimeout(check, 5000);
       }
     };
     check();

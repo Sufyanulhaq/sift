@@ -30,30 +30,19 @@ jobs:
           done
           python3 -c "import json;m=json.load(open('result.json'))['meta'];print(m);assert m['embedder']=='minilm'"
           docker logs api | tail -20
-      - name: Publish to the Hugging Face Space
-        if: ${{ github.event_name != 'pull_request' && vars.HF_SPACE != '' }}
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE: ${{ vars.HF_SPACE }}
+      - name: Smoke test with free Render limits
         run: |
-          mkdir space
-          cp -r Dockerfile .dockerignore samples space/
-          mkdir space/backend
-          cp -r backend/pyproject.toml backend/uv.lock backend/README.md backend/sift backend/models space/backend/
-          cat > space/README.md <<'MD'
-          ---
-          title: Sift API
-          emoji: 📊
-          colorFrom: indigo
-          colorTo: pink
-          sdk: docker
-          app_port: 7860
-          pinned: false
-          short_description: Customer feedback analysis API for Sift
-          ---
-
-          The backend of [Sift](https://github.com/Sufyanulhaq/sift). Interactive docs are at /docs.
-          MD
-          sed -i 's/^          //' space/README.md
-          pip install --quiet huggingface_hub
-          hf upload "$HF_SPACE" space . --repo-type space --commit-message "Deploy ${GITHUB_SHA::7}"
+          docker rm -f api
+          docker run -d --name small -p 7861:10000 --memory 512m --cpus 0.1 -e PORT=10000 -e SIFT_EMBEDDER=lsa -e SIFT_MAX_RUNNING=1 sift-api
+          for i in $(seq 1 90); do curl -sf localhost:7861/api/health && break; sleep 2; done
+          job=$(curl -sf -X POST localhost:7861/api/analyze/sample/hearth-and-oak-reviews.csv | python3 -c "import sys,json;print(json.load(sys.stdin)['jobId'])")
+          start=$(date +%s)
+          for i in $(seq 1 150); do
+            code=$(curl -s -o small.json -w "%{http_code}" localhost:7861/api/jobs/$job)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          echo "analysis took $(( $(date +%s) - start ))s"
+          python3 -c "import json;m=json.load(open('small.json'))['meta'];print(m);assert m['embedder']=='lsa'"
+          docker stats --no-stream small
+          docker logs small | tail -20
