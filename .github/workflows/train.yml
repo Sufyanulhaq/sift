@@ -1,0 +1,59 @@
+name: Train the sentiment model
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - backend/ml/train_sentiment.py
+
+permissions:
+  contents: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+
+      - name: Train and evaluate
+        run: uv run python ml/train_sentiment.py | tee train-output.json
+
+      - name: Check the sample with the pretrained sentence model
+        env:
+          SIFT_EMBEDDER: minilm
+        run: uv run python ml/report_topics.py | tee topics-report.txt
+
+      - name: Write the job summary
+        run: |
+          {
+            echo "Sentiment model"
+            echo
+            echo '```'
+            cat train-output.json
+            echo '```'
+            echo
+            echo "Topics found in the sample"
+            echo
+            echo '```'
+            cat topics-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit the trained model
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add models/sentiment.joblib models/sentiment.json
+          if git diff --cached --quiet; then
+            echo "Model unchanged"
+          else
+            git commit -m "Update the trained sentiment model"
+            git push
+          fi
