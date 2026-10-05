@@ -1,6 +1,10 @@
 """Run the sample through the full pipeline and print the topics, for checking
-clustering quality with whichever embedder is available (set SIFT_EMBEDDER)."""
+clustering quality with whichever embedder is available (set SIFT_EMBEDDER).
 
+With --write PATH the full result is also saved as JSON, which is how the
+frontend demo report is built."""
+
+import json
 import sys
 from pathlib import Path
 
@@ -18,4 +22,9 @@ print(f"rating agreement={result['overview']['ratingAgreement']} unassigned={res
 for t in result["topics"]:
     print(f"{t['id']:>2} {t['size']:>4} {t['sentiment']:+.2f}  {t['name']:<28} {', '.join(t['keywords'][:5])}")
 print("spikes:", result["trends"]["spikes"][:3])
+
+if "--write" in sys.argv:
+    out = Path(sys.argv[sys.argv.index("--write") + 1])
+    out.write_text(json.dumps(result, separators=(",", ":")))
+    print(f"wrote {out}")
 print("summary:", result["summary"]["text"])

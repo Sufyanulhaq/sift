@@ -10,3 +10,5 @@ out/
 .env.local
 backend/train-output.json
 backend/topics-report.txt
+test-results
+playwright-report

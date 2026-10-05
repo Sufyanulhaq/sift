@@ -1,0 +1,129 @@
+{
+  "version": "20261005",
+  "trainedAt": "2026-10-05T14:21:59+00:00",
+  "algorithm": "TF-IDF (words and word pairs) + logistic regression",
+  "chosenC": 16,
+  "crossValidationF1": 0.8267,
+  "data": {
+    "name": "Sentiment Labelled Sentences",
+    "citation": "Kotzias, D., Denil, M., de Freitas, N. and Smyth, P. (2015). From Group to Individual Labels using Deep Features. KDD.",
+    "source": "UCI Machine Learning Repository",
+    "license": "CC BY 4.0",
+    "url": "https://archive.ics.uci.edu/dataset/331/sentiment+labelled+sentences",
+    "rows": 3000,
+    "train": 2400,
+    "test": 600
+  },
+  "test": {
+    "accuracy": 0.8267,
+    "f1": 0.8284,
+    "perClass": {
+      "negative": {
+        "precision": 0.8333,
+        "recall": 0.8167,
+        "f1": 0.8249
+      },
+      "positive": {
+        "precision": 0.8203,
+        "recall": 0.8367,
+        "f1": 0.8284
+      }
+    },
+    "confusion": [
+      [
+        245,
+        55
+      ],
+      [
+        49,
+        251
+      ]
+    ],
+    "bySource": {
+      "amazon": 0.845,
+      "imdb": 0.79,
+      "yelp": 0.845
+    }
+  },
+  "baseline": {
+    "name": "VADER (rule based)",
+    "accuracy": 0.72,
+    "f1": 0.7686,
+    "perClass": {
+      "negative": {
+        "precision": 0.8793,
+        "recall": 0.51,
+        "f1": 0.6456
+      },
+      "positive": {
+        "precision": 0.6549,
+        "recall": 0.93,
+        "f1": 0.7686
+      }
+    },
+    "confusion": [
+      [
+        153,
+        147
+      ],
+      [
+        21,
+        279
+      ]
+    ],
+    "bySource": {
+      "amazon": 0.745,
+      "imdb": 0.705,
+      "yelp": 0.71
+    }
+  },
+  "mistakes": [
+    {
+      "text": "I went to Bachi Burger on a friend's recommendation and was not disappointed.",
+      "label": 1,
+      "confidence": 0.961
+    },
+    {
+      "text": "They know how to make them here.",
+      "label": 1,
+      "confidence": 0.943
+    },
+    {
+      "text": "It was just not a fun experience.",
+      "label": 1,
+      "confidence": 0.928
+    },
+    {
+      "text": "And the accents are absolutely abysmal!",
+      "label": 0,
+      "confidence": 0.909
+    },
+    {
+      "text": "I did not have any problem with this item and would order it again if needed.",
+      "label": 1,
+      "confidence": 0.895
+    },
+    {
+      "text": "This is infuriating.",
+      "label": 0,
+      "confidence": 0.894
+    },
+    {
+      "text": "I saw this movie and I thought this is a stupid movie.",
+      "label": 0,
+      "confidence": 0.886
+    },
+    {
+      "text": "I struggle to find anything bad to say about it.",
+      "label": 1,
+      "confidence": 0.885
+    }
+  ],
+  "limitations": [
+    "Trained on short single sentences; long reviews mixing praise and complaints get an averaged score.",
+    "English only.",
+    "Learned from 2,400 sentences, so rare words and new slang carry little signal.",
+    "Labels are positive or negative; Sift calls scores near the middle neutral."
+  ],
+  "seconds": 14.9
+}

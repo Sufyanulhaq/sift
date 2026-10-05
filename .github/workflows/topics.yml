@@ -3,9 +3,15 @@ name: Topic quality with the sentence model
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
-      - backend/sift/pipeline/**
-      - backend/sift/analysis.py
+      - backend/sift/**
+      - backend/models/**
+      - backend/ml/report_topics.py
+      - samples/**
+
+permissions:
+  contents: write
 
 jobs:
   report:
@@ -21,6 +27,18 @@ jobs:
       - name: Analyse the sample with MiniLM
         env:
           SIFT_EMBEDDER: minilm
-        run: uv run python ml/report_topics.py | tee topics-report.txt
+        run: uv run python ml/report_topics.py --write ../frontend/public/sample-report.json | tee topics-report.txt
       - run: |
           { echo '```'; cat topics-report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit the demo report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ../frontend/public/sample-report.json
+          if git diff --cached --quiet; then
+            echo "Demo report unchanged"
+          else
+            git commit -m "Rebuild the demo report with the sentence model"
+            git pull --rebase
+            git push
+          fi
